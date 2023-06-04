@@ -1,8 +1,7 @@
 import cv2
 import numpy as np
 
-
-def get_bounding_box_for_image(input_image_path, output_image_path):
+def save_bounding_box_images(input_image_path, output_image_path):
     net = cv2.dnn.readNet('yolov3.weights', 'yolov3.cfg')
     layer_names = net.getLayerNames()
     output_layers = [str(layer_name) for layer_name in layer_names]
@@ -36,29 +35,23 @@ def get_bounding_box_for_image(input_image_path, output_image_path):
                     confidences.append(float(confidence))
                     class_ids.append(class_id)
             except:
-                #print("Exception occurred!")
                 continue
 
     # Apply non-maximum suppression to remove overlapping bounding boxes
     indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
-    
-    # Draw the bounding boxes and labels on the image
-    colors = np.random.uniform(0, 255, size=(len(class_ids), 3))
+
+    # Save each bounding box as a separate image
     if len(indices) > 0:
         for i in indices.flatten():
             x, y, width, height = boxes[i]
-            label = str(class_ids[i])
-            confidence = confidences[i]
-            color = colors[i]
-            cv2.rectangle(image, (x, y), (x + width, y + height), color, 2)
-            cv2.putText(image, label, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            roi = image[y:y+height, x:x+width]
+            output_image_path = f'{output_image_path}_bounding_box_{i}.jpg'
+            cv2.imwrite(output_image_path, roi)
 
-    cv2.imwrite(output_image_path, image)
-
+# Example usage
 '''
-inp = 'image.jpg'
-#inp = 'chinese-line.jpg'
-out = 'output.png'
-get_bounding_box_for_image(inp, out)
+input_image_path = 'image.jpg'
+output_image_dir = 'bounding_box_images'
+save_bounding_box_images(input_image_path, output_image_dir)
 '''
 
