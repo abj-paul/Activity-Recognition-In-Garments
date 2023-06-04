@@ -1,0 +1,6 @@
+* Darknet
+https://pjreddie.com/darknet/yolo/
+
+Follow the guide here to use the terminal tool Darknet to make bounding box. It was our first step. Later, we used this thing.
+
+* The link to weights and cfg for model
