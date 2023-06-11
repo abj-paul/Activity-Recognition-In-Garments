@@ -1,0 +1,148 @@
+import os
+import skimage
+import cv2
+import numpy as np
+import numpy
+import os
+import time
+
+
+# Objects to track
+class Tracker:
+    __isInitialized = False
+    __oldState = []
+
+    def __initialize(self, MAX_NUM_OF_OBJECTS, SAMPLE_OBJECT):
+        for objecT_index in range(MAX_NUM_OF_OBJECTS):
+            self.__oldState.append(SAMPLE_OBJECT)
+        self.__isInitialized = True
+
+    def trackObject(self, current_object_state):
+        if not self.__isInitialized:
+            self.__initialize(1, current_object_state)
+
+        for object_index, old_object_state in enumerate(self.__oldState):
+            if self.calculate_image_similarity(old_object_state, current_object_state)==1:
+                self.__oldState[object_index] = current_object_state
+                return object_index
+
+        # If the object is not registered previously, then register it.
+        lastIndex = len(self.__oldState)
+        self.__oldState.append(current_object_state)
+        return lastIndex
+    
+
+    def calculate_image_similarity(self, image1, image2):
+        """Estimates similarity between two images.
+    
+        Args:
+        image1: The first image.
+        image2: The second image.
+        
+        Returns:
+        The similarity between the two images, as a float between 0 and 1.
+        """
+    
+        # Convert the images to NumPy arrays.
+        image1_array = np.array(image1)
+        image2_array = np.array(image2)
+        
+        # Calculate the mean and standard deviation of each image.
+        image1_mean = np.mean(image1_array)
+        image1_std = np.std(image1_array)
+        image2_mean = np.mean(image2_array)
+        image2_std = np.std(image2_array)
+    
+        # Calculate the correlation between the two images.
+        correlation = np.corrcoef(image1_array, image2_array)[0, 1]
+        
+        # Return the similarity between the two images.
+        return correlation
+    
+
+
+def extractFrameFromImage(filePath, imageLimit, frame_rate):
+  vidcap = cv2.VideoCapture(filePath)
+  success,image = vidcap.read()
+  count = 0
+  #define framerate
+  prev = 0
+  frame=0
+  while success:
+    time_elapsed = time.time() - prev
+    success,image = vidcap.read()  
+    if time_elapsed > 1./frame_rate:
+      prev = time.time()
+      cv2.imwrite("%d.jpg" % count, image)     # save frame as JPEG file      
+      print('Read a new frame: ', count, success)
+      count=count+1
+      frame += frame_rate # i.e. at 30 fps, this advances one second
+      vidcap.set(cv2.CAP_PROP_POS_FRAMES, frame)
+    if count>=imageLimit:
+      break
+  vidcap.release()
+  #cv2.destroyAllWindows()
+
+
+tracker = Tracker()
+
+
+net = cv2.dnn.readNet('yolov3.weights', 'yolov3.cfg')
+def save_bounding_box_images(input_image_path, output_image_path):
+    layer_names = net.getLayerNames()
+    output_layers = [str(layer_name) for layer_name in layer_names]
+
+    image = cv2.imread(input_image_path)
+    # Preprocess the image
+    blob = cv2.dnn.blobFromImage(image, 1/255.0, (416, 416), swapRB=True, crop=False)
+    net.setInput(blob)
+
+    # Forward pass through the network
+    outs = net.forward(output_layers)
+
+    boxes = []
+    confidences = []
+    class_ids = []
+    for out in outs:
+        for detection in out:
+            detection = np.array(detection)
+            try:
+                scores = detection[5:]
+                class_id = np.argmax(scores)
+                confidence = scores[class_id]
+                if confidence > 0.5:  # Adjust the confidence threshold as needed
+                    center_x = int(detection[0] * image.shape[1])
+                    center_y = int(detection[1] * image.shape[0])
+                    width = int(detection[2] * image.shape[1])
+                    height = int(detection[3] * image.shape[0])
+                    x = int(center_x - width / 2)
+                    y = int(center_y - height / 2)
+                    boxes.append([x, y, width, height])
+                    confidences.append(float(confidence))
+                    class_ids.append(class_id)
+            except:
+                continue
+
+    # Apply non-maximum suppression to remove overlapping bounding boxes
+    indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
+
+    # Save each bounding box as a separate image
+    if len(indices) > 0:
+        for i in indices.flatten():
+            x, y, width, height = boxes[i]
+            roi = image[y:y+height, x:x+width]
+            output_image_path = f'{output_image_path}_bounding_box_{i}.jpg'
+            cv2.imwrite(output_image_path, roi)
+            print(output_image_path + "==>"+str(tracker.trackObject(roi)))
+
+
+# Testing
+extractFrameFromImage(filePath="video.mp4", imageLimit = 5, frame_rate=5)
+#extractFrameFromImage(filePath="http://10.100.103.245:4747/video", imageLimit = 20, frame_rate=5)
+#extractFrameFromImage(filePath="Abhijit-activity.mp4", imageLimit = 20, frame_rate=5)
+for count in range(20):
+    input_img_path = str(count)+".jpg"
+    output_img_path = "frame_"+str(count)
+    save_bounding_box_images(input_img_path, output_img_path)
+
+
