@@ -2,5 +2,8 @@ bounding-box-rmg/__pycache__/
 bounding-box-rmg/yolov3*
 bounding-box-rmg/data/
 live_tracking/hogsenv/
-yolov3*
+yolov*
+image-similarity-experimentation/imagesimenv*
+image-similarity-experimentation/
+imagesimenv*
 
