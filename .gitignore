@@ -3,4 +3,5 @@ live_tracking/hogsenv/
 yolov*
 image-similarity-experimentation/imagesimenv*
 imagesimenv*
+keypointenv*
 
